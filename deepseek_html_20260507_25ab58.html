@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Арзон Маркет</title>
+  <link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%22%D0%90%D1%80%D0%B7%D0%BE%D0%BD%20%D0%9C%D0%B0%D1%80%D0%BA%D0%B5%D1%82%22%2C%22short_name%22%3A%22%D0%90%D1%80%D0%B7%D0%BE%D0%BD%22%2C%22start_url%22%3A%22.%2F%22%2C%22display%22%3A%22standalone%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22data%3Aimage%2Fsvg%2Bxml%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%20100%20100'%3E%3Crect%20width%3D'100'%20height%3D'100'%20rx%3D'20'%20fill%3D'%2325D366'%2F%3E%3Ctext%20x%3D'50'%20y%3D'65'%20font-size%3D'50'%20text-anchor%3D'middle'%20fill%3D'white'%3E%F0%9F%9B%8D%3C%2Ftext%3E%3C%2Fsvg%3E%22%2C%22sizes%22%3A%22100x100%22%2C%22type%22%3A%22image%2Fsvg%2Bxml%22%7D%5D%7D">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; max-width: 600px; margin: auto; padding: 10px; background: #f5f5f5; }
+    .hidden { display: none !important; }
+    header { background: #25D366; color: white; padding: 15px; border-radius: 10px; text-align: center; margin-bottom: 15px; }
+    .btn { background: #25D366; color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-size: 16px; }
+    .btn.red { background: #dc3545; }
+    .btn.blue { background: #007bff; }
+    .btn.gray { background: #6c757d; }
+    .btn.orange { background: #ff9800; }
+    .btn.small { padding: 5px 10px; font-size: 14px; }
+    .card { background: white; border-radius: 10px; padding: 15px; margin: 10px 0; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    .product { display: flex; justify-content: space-between; align-items: center; }
+    .product img { width: 60px; height: 60px; object-fit: cover; border-radius: 8px; margin-right: 10px; }
+    .cart-item { display: flex; justify-content: space-between; align-items: center; }
+    input, textarea, select { width: 100%; padding: 10px; margin: 5px 0; border-radius: 5px; border: 1px solid #ccc; }
+    .tabs { display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; }
+    .tab { flex: 1; text-align: center; padding: 10px; background: #ddd; border-radius: 8px; cursor: pointer; min-width: 60px; }
+    .tab.active { background: #25D366; color: white; }
+    .admin-panel { background: #fff3cd; padding: 15px; border-radius: 10px; margin-top: 15px; }
+    .order-actions { display: flex; gap: 10px; margin-top: 10px; }
+    .filters { display: flex; gap: 10px; margin-bottom: 10px; }
+    .filters select { flex: 1; }
+    .meta { font-size: 0.9em; color: #666; }
+    .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+    .modal.active { display: flex; }
+    .modal-content { background: white; padding: 20px; border-radius: 10px; max-width: 400px; width: 90%; }
+    .modal-content select, .modal-content input { margin: 5px 0; }
+    .modal-buttons { display: flex; gap: 10px; margin-top: 15px; }
+    .promo-block { margin: 10px 0; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🛍️ Арзон Маркет</h1>
+    <p id="userStatus">Гость</p>
+    <button class="btn gray" id="authBtn" style="margin-top:5px;">Войти / Регистрация</button>
+    <button class="btn gray hidden" id="logoutBtn" style="margin-top:5px;">Выйти</button>
+    <button class="btn gray hidden" id="adminLoginBtn" style="margin-top:5px;">Войти как админ</button>
+  </header>
+
+  <div id="authModal" class="modal">
+    <div class="modal-content">
+      <h3 id="authTitle">Вход</h3>
+      <input type="text" id="authLogin" placeholder="Логин">
+      <input type="tel" id="authPhone" placeholder="Телефон (для регистрации)">
+      <input type="text" id="authCity" placeholder="Город (для регистрации)">
+      <input type="password" id="authPassword" placeholder="Пароль">
+      <div class="modal-buttons">
+        <button class="btn" id="doAuthBtn">Войти</button>
+        <button class="btn gray" id="switchAuthMode">Регистрация</button>
+        <button class="btn red" id="closeAuthModal">Закрыть</button>
+      </div>
+      <p id="authError" style="color:red; display:none;"></p>
+    </div>
+  </div>
+
+  <div id="variantModal" class="modal">
+    <div class="modal-content">
+      <h3>Выберите параметры</h3>
+      <p id="variantProductName"></p>
+      <label>Размер</label>
+      <select id="variantSize"></select>
+      <label>Цвет</label>
+      <select id="variantColor"></select>
+      <label>Количество</label>
+      <input type="number" id="variantQty" min="1" value="1">
+      <div class="modal-buttons">
+        <button class="btn" id="addVariantToCart">Добавить в корзину</button>
+        <button class="btn red" id="closeVariantModal">Отмена</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="loginPanel" class="card hidden">
+    <input type="password" id="adminPassInput" placeholder="Пароль администратора">
+    <button class="btn" id="submitPass">Войти</button>
+    <p id="loginError" style="color:red;display:none;">Неверный пароль</p>
+  </div>
+
+  <div id="tabsContainer" class="tabs">
+    <div id="tabCatalog" class="tab active">Каталог</div>
+    <div id="tabCart" class="tab">Корзина <span id="cartCount">(0)</span></div>
+    <div id="tabMyOrders" class="tab">Мои заказы</div>
+    <div id="tabAdminOrders" class="tab hidden">Заказы (админ)</div>
+    <div id="tabAdminProducts" class="tab hidden">Товары (админ)</div>
+    <div id="tabAdminClients" class="tab hidden">Клиенты (админ)</div>
+    <div id="tabAdminPromos" class="tab hidden">Промокоды (админ)</div>
+  </div>
+
+  <div id="catalogSection">
+    <div class="filters">
+      <select id="filterCategory"><option value="">Все категории</option></select>
+      <select id="filterCountry"><option value="">Все страны</option></select>
+    </div>
+    <div id="productList"></div>
+  </div>
+
+  <div id="cartSection" class="hidden">
+    <div id="cartItems"></div>
+    <p><strong>Итого: <span id="cartTotal">0</span> ₽</strong></p>
+    <div id="discountInfo" class="hidden" style="color:green;"></div>
+    <div class="promo-block">
+      <input type="text" id="promoCodeInput" placeholder="Промокод">
+      <button class="btn blue small" id="applyPromoBtn">Применить</button>
+      <span id="promoMessage" style="margin-left:10px;"></span>
+    </div>
+    <button class="btn" id="buyBtn">Купить (WhatsApp)</button>
+  </div>
+
+  <div id="myOrdersSection" class="hidden">
+    <h3>История заказов</h3>
+    <div id="myOrdersList">У вас пока нет заказов</div>
+  </div>
+
+  <div id="adminOrdersSection" class="hidden admin-panel">
+    <h3>Заказы на одобрение</h3>
+    <div id="ordersList">Нет новых заказов</div>
+  </div>
+
+  <div id="adminProductsSection" class="hidden admin-panel">
+    <h3>Добавить товар</h3>
+    <input type="text" id="prodName" placeholder="Название">
+    <input type="number" id="prodPrice" placeholder="Цена (₽)">
+    <input type="text" id="prodCategory" placeholder="Категория" list="categorySuggestions">
+    <datalist id="categorySuggestions"></datalist>
+    <input type="text" id="prodCountry" placeholder="Страна">
+    <input type="text" id="prodSizes" placeholder="Размеры через запятую">
+    <input type="text" id="prodColors" placeholder="Цвета через запятую">
+    <input type="file" id="prodImageFile" accept="image/*" style="display:none;">
+    <button type="button" class="btn blue" id="chooseImageBtn">📷 Выбрать фото</button>
+    <img id="imagePreview" style="max-width:200px; display:none; margin-top:10px; border-radius:8px;">
+    <button class="btn" id="addProductBtn" style="margin-top:10px;">Добавить товар</button>
+    <div id="adminProductList" style="margin-top:15px;"></div>
+  </div>
+
+  <div id="adminClientsSection" class="hidden admin-panel">
+    <h3>Клиенты</h3>
+    <div id="clientsList"></div>
+  </div>
+
+  <div id="adminPromosSection" class="hidden admin-panel">
+    <h3>Управление промокодами</h3>
+    <input type="text" id="promoCode" placeholder="Код (например: SALE20)">
+    <input type="number" id="promoDiscount" placeholder="Скидка %" min="1" max="99">
+    <input type="number" id="promoMaxUsage" placeholder="Макс. использований на номер" min="1" value="1">
+    <button class="btn" id="addPromoBtn">Добавить промокод</button>
+    <div id="promoList" style="margin-top:15px;"></div>
+  </div>
+
+  <script>
+    // ========== НАСТРОЙКИ ==========
+    const CONFIG = {
+      whatsappNumber: "992987057255",
+      cardNumbers: "Душанбе Сити Бонк: 015060009, Спитамен Бонк: 987057255",
+      address: "Хони малими Дехконбой, Пеши хавзошон, Калъаи шах 2",
+      adminPassword: "admin123"   // СРОЧНО СМЕНИТЕ на свой!
+    };
+    // ==============================
+
+    // ---------- Локальные хранилища ----------
+    function getUsers() { return JSON.parse(localStorage.getItem('shopUsers') || '[]'); }
+    function setUsers(u) { localStorage.setItem('shopUsers', JSON.stringify(u)); }
+    function getCurrentUser() { return JSON.parse(localStorage.getItem('currentUser') || 'null'); }
+    function setCurrentUser(u) { localStorage.setItem('currentUser', JSON.stringify(u)); }
+    function getOrders() {
+      let orders = JSON.parse(localStorage.getItem('shopOrders') || '[]');
+      // Миграция: добавляем orderId, если его нет (для старых заказов)
+      let changed = false;
+      orders.forEach(o => {
+        if (!o.orderId) {
+          o.orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+          changed = true;
+        }
+      });
+      if (changed) setOrders(orders);
+      return orders;
+    }
+    function setOrders(o) { localStorage.setItem('shopOrders', JSON.stringify(o)); }
+    function getProducts() { return JSON.parse(localStorage.getItem('shopProducts') || '[]'); }
+    function setProducts(p) { localStorage.setItem('shopProducts', JSON.stringify(p)); }
+    function getPromos() { return JSON.parse(localStorage.getItem('shopPromos') || '[]'); }
+    function setPromos(p) { localStorage.setItem('shopPromos', JSON.stringify(p)); }
+    function getPromoUsage() { return JSON.parse(localStorage.getItem('promoUsage') || '{}'); }
+    function setPromoUsage(u) { localStorage.setItem('promoUsage', JSON.stringify(u)); }
+
+    let isAdmin = false;
+    let cart = JSON.parse(localStorage.getItem('cart') || '[]');
+    let allProducts = [];
+    let currentVariantProduct = null;
+    let appliedPromo = null;
+
+    // UI
+    function show(el) { el.classList.remove('hidden'); }
+    function hide(el) { el.classList.add('hidden'); }
+    function updateCartCount() {
+      document.getElementById('cartCount').textContent = `(${cart.length})`;
+    }
+
+    function updateAuthUI() {
+      const user = getCurrentUser();
+      if (user) {
+        document.getElementById('userStatus').textContent = `👤 ${user.login}`;
+        hide(document.getElementById('authBtn'));
+        show(document.getElementById('logoutBtn'));
+        show(document.getElementById('tabMyOrders'));
+      } else {
+        document.getElementById('userStatus').textContent = 'Гость';
+        show(document.getElementById('authBtn'));
+        hide(document.getElementById('logoutBtn'));
+        hide(document.getElementById('tabMyOrders'));
+        if (document.getElementById('tabMyOrders').classList.contains('active')) switchTab('tabCatalog');
+      }
+      const adminBtn = document.getElementById('adminLoginBtn');
+      const adminTabs = ['tabAdminOrders', 'tabAdminProducts', 'tabAdminClients', 'tabAdminPromos'];
+      if (isAdmin) {
+        hide(adminBtn);
+        adminTabs.forEach(id => show(document.getElementById(id)));
+      } else {
+        show(adminBtn);
+        adminTabs.forEach(id => hide(document.getElementById(id)));
+      }
+    }
+    updateAuthUI();
+
+    // Вкладки
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.getElementById(tabId).classList.add('active');
+      const sec = {
+        tabCatalog: 'catalogSection',
+        tabCart: 'cartSection',
+        tabMyOrders: 'myOrdersSection',
+        tabAdminOrders: 'adminOrdersSection',
+        tabAdminProducts: 'adminProductsSection',
+        tabAdminClients: 'adminClientsSection',
+        tabAdminPromos: 'adminPromosSection'
+      };
+      for (let [tab, s] of Object.entries(sec)) {
+        if (tab === tabId) show(document.getElementById(s));
+        else hide(document.getElementById(s));
+      }
+      if (tabId === 'tabCatalog') renderProducts();
+      if (tabId === 'tabCart') renderCart();
+      if (tabId === 'tabMyOrders') renderMyOrders();
+      if (tabId === 'tabAdminOrders') renderAdminOrders();
+      if (tabId === 'tabAdminProducts') renderAdminProducts();
+      if (tabId === 'tabAdminClients') renderClients();
+      if (tabId === 'tabAdminPromos') renderPromos();
+    }
+
+    document.getElementById('tabCatalog').onclick = () => switchTab('tabCatalog');
+    document.getElementById('tabCart').onclick = () => switchTab('tabCart');
+    document.getElementById('tabMyOrders').onclick = () => switchTab('tabMyOrders');
+    document.getElementById('tabAdminOrders').onclick = () => switchTab('tabAdminOrders');
+    document.getElementById('tabAdminProducts').onclick = () => switchTab('tabAdminProducts');
+    document.getElementById('tabAdminClients').onclick = () => switchTab('tabAdminClients');
+    document.getElementById('tabAdminPromos').onclick = () => switchTab('tabAdminPromos');
+
+    // Авторизация
+    let authMode = 'login';
+    document.getElementById('authBtn').onclick = () => {
+      authMode = 'login';
+      document.getElementById('authTitle').textContent = 'Вход';
+      document.getElementById('authPhone').style.display = 'none';
+      document.getElementById('authCity').style.display = 'none';
+      document.getElementById('doAuthBtn').textContent = 'Войти';
+      document.getElementById('switchAuthMode').textContent = 'Регистрация';
+      document.getElementById('authModal').classList.add('active');
+    };
+    document.getElementById('switchAuthMode').onclick = () => {
+      authMode = authMode === 'login' ? 'register' : 'login';
+      document.getElementById('authTitle').textContent = authMode === 'login' ? 'Вход' : 'Регистрация';
+      document.getElementById('authPhone').style.display = authMode === 'login' ? 'none' : 'block';
+      document.getElementById('authCity').style.display = authMode === 'login' ? 'none' : 'block';
+      document.getElementById('doAuthBtn').textContent = authMode === 'login' ? 'Войти' : 'Зарегистрироваться';
+      document.getElementById('switchAuthMode').textContent = authMode === 'login' ? 'Регистрация' : 'Вход';
+    };
+    document.getElementById('closeAuthModal').onclick = () => document.getElementById('authModal').classList.remove('active');
+    document.getElementById('doAuthBtn').onclick = () => {
+      const login = document.getElementById('authLogin').value.trim();
+      const phone = document.getElementById('authPhone').value.trim();
+      const city = document.getElementById('authCity').value.trim();
+      const pass = document.getElementById('authPassword').value;
+      const err = document.getElementById('authError');
+      err.style.display = 'none';
+      if (!login || !pass) { err.textContent = 'Введите логин и пароль'; err.style.display = 'block'; return; }
+      const users = getUsers();
+      if (authMode === 'register') {
+        if (!phone || !city) { err.textContent = 'Введите телефон и город'; err.style.display = 'block'; return; }
+        if (users.find(u => u.login === login)) { err.textContent = 'Логин занят'; err.style.display = 'block'; return; }
+        users.push({ login, phone, city, password: pass });
+        setUsers(users);
+        setCurrentUser({ login, phone, city });
+        document.getElementById('authModal').classList.remove('active');
+        updateAuthUI();
+        alert('Регистрация успешна!');
+      } else {
+        const user = users.find(u => u.login === login && u.password === pass);
+        if (!user) { err.textContent = 'Неверный логин или пароль'; err.style.display = 'block'; return; }
+        setCurrentUser({ login: user.login, phone: user.phone, city: user.city || '' });
+        document.getElementById('authModal').classList.remove('active');
+        updateAuthUI();
+        alert('Вход выполнен');
+      }
+    };
+
+    document.getElementById('logoutBtn').onclick = () => {
+      if (isAdmin) {
+        isAdmin = false;
+        updateAuthUI();
+        document.getElementById('adminPassInput').value = '';
+        document.getElementById('loginError').style.display = 'none';
+        hide(document.getElementById('loginPanel'));
+        if (!getCurrentUser()) document.getElementById('userStatus').textContent = 'Гость';
+        switchTab('tabCatalog');
+      } else {
+        if (confirm('Выйти?')) { setCurrentUser(null); updateAuthUI(); }
+      }
+    };
+
+    document.getElementById('adminLoginBtn').onclick = () => show(document.getElementById('loginPanel'));
+    document.getElementById('submitPass').onclick = () => {
+      if (document.getElementById('adminPassInput').value === CONFIG.adminPassword) {
+        isAdmin = true;
+        hide(document.getElementById('loginPanel'));
+        updateAuthUI();
+        switchTab('tabCatalog');
+      } else {
+        document.getElementById('loginError').style.display = 'block';
+      }
+    };
+
+    // Корзина
+    function addToCart(product, size, color, qty = 1) {
+      for (let i = 0; i < qty; i++) {
+        cart.push({
+          productId: product.id,
+          name: product.name,
+          price: product.price,
+          image: product.image || '',
+          size, color
+        });
+      }
+      localStorage.setItem('cart', JSON.stringify(cart));
+      updateCartCount();
+      renderCart();
+    }
+    function removeFromCart(idx) {
+      cart.splice(idx, 1);
+      localStorage.setItem('cart', JSON.stringify(cart));
+      updateCartCount();
+      renderCart();
+    }
+
+    function renderCart() {
+      const container = document.getElementById('cartItems');
+      const totalEl = document.getElementById('cartTotal');
+      const discountEl = document.getElementById('discountInfo');
+      if (cart.length === 0) {
+        container.innerHTML = '<p>Корзина пуста</p>';
+        totalEl.textContent = '0';
+        discountEl.classList.add('hidden');
+      } else {
+        container.innerHTML = cart.map((item, i) => `
+          <div class="cart-item card">
+            <div>
+              <strong>${item.name}</strong>
+              ${item.size ? `<div class="meta">Размер: ${item.size}</div>` : ''}
+              ${item.color ? `<div class="meta">Цвет: ${item.color}</div>` : ''}
+              <div>${item.price} ₽</div>
+            </div>
+            <button class="btn red small" onclick="removeFromCart(${i})">Удалить</button>
+          </div>
+        `).join('');
+        let rawTotal = cart.reduce((s, i) => s + i.price, 0);
+        totalEl.textContent = rawTotal;
+        if (appliedPromo) {
+          let discounted = Math.round(rawTotal * (100 - appliedPromo.discountPercent) / 100);
+          discountEl.classList.remove('hidden');
+          discountEl.innerHTML = `Скидка ${appliedPromo.discountPercent}% (промокод ${appliedPromo.code})<br><strong>Итого со скидкой: ${discounted} ₽</strong>`;
+        } else {
+          discountEl.classList.add('hidden');
+        }
+      }
+    }
+
+    // Промокод
+    document.getElementById('applyPromoBtn').onclick = () => {
+      const user = getCurrentUser();
+      if (!user) { alert('Войдите в аккаунт, чтобы использовать промокод'); return; }
+      const code = document.getElementById('promoCodeInput').value.trim().toUpperCase();
+      if (!code) return;
+      const promos = getPromos();
+      const promo = promos.find(p => p.code === code);
+      if (!promo) {
+        document.getElementById('promoMessage').textContent = 'Промокод не найден';
+        return;
+      }
+      const usage = getPromoUsage();
+      const usedCount = (usage[code] && usage[code][user.phone]) || 0;
+      if (usedCount >= promo.maxUsagePerPhone) {
+        document.getElementById('promoMessage').textContent = 'Вы исчерпали лимит использований этого промокода';
+        return;
+      }
+      appliedPromo = { code: promo.code, discountPercent: promo.discountPercent };
+      document.getElementById('promoMessage').textContent = `Промокод применён! Скидка ${promo.discountPercent}%`;
+      renderCart();
+    };
+
+    document.getElementById('buyBtn').onclick = () => {
+      const user = getCurrentUser();
+      if (!user) { alert('Войдите в аккаунт'); return; }
+      if (cart.length === 0) { alert('Корзина пуста'); return; }
+
+      let discountPercent = 0;
+      let promoCodeUsed = null;
+      if (appliedPromo) {
+        const promo = getPromos().find(p => p.code === appliedPromo.code);
+        if (!promo) { appliedPromo = null; renderCart(); alert('Промокод больше не действует'); return; }
+        const usage = getPromoUsage();
+        const usedCount = (usage[appliedPromo.code] && usage[appliedPromo.code][user.phone]) || 0;
+        if (usedCount >= promo.maxUsagePerPhone) {
+          appliedPromo = null;
+          renderCart();
+          alert('Лимит использований промокода исчерпан');
+          return;
+        }
+        discountPercent = promo.discountPercent;
+        promoCodeUsed = promo.code;
+      }
+
+      let rawTotal = cart.reduce((s, i) => s + i.price, 0);
+      let finalTotal = discountPercent ? Math.round(rawTotal * (100 - discountPercent) / 100) : rawTotal;
+
+      const itemsText = cart.map(i => {
+        let d = i.name;
+        if (i.size && i.size !== 'Без размера') d += ` (${i.size})`;
+        if (i.color && i.color !== 'Без цвета') d += ` (${i.color})`;
+        return d;
+      }).join(', ');
+
+      const orderId = Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
+      const order = {
+        orderId,
+        customerLogin: user.login,
+        items: cart.map(i => ({ name: i.name, price: i.price, size: i.size, color: i.color })),
+        total: finalTotal,
+        discount: discountPercent,
+        promoCode: promoCodeUsed,
+        date: new Date().toLocaleString(),
+        status: 'pending'
+      };
+
+      const orders = getOrders();
+      orders.push(order);
+      setOrders(orders);
+
+      if (promoCodeUsed) {
+        const usage = getPromoUsage();
+        if (!usage[promoCodeUsed]) usage[promoCodeUsed] = {};
+        usage[promoCodeUsed][user.phone] = (usage[promoCodeUsed][user.phone] || 0) + 1;
+        setPromoUsage(usage);
+      }
+
+      cart = [];
+      appliedPromo = null;
+      localStorage.removeItem('cart');
+      updateCartCount();
+      renderCart();
+
+      const msg = `Салом шуморо магозаи Арзон Маркет дирам шодбош мегуяд. Он чизе ки интихоб кардед пулашро гузаронед ва чекашро партоед ва хамаи заказхои шумо ба таври автомати кабул мешаванд. Ин нархи молхои шумо бе дастафка аз Хитой ба Точикистон: барои хамаи чизхо шумо боз ба килои он чиз пул медихед 1 кг 30 сомони, бурда расонидан то Сурх ройгон мебошад. Тано ба вазни бор чи кадар барояд ба хамон боз пул медихед. Омадани бор давоми 18-28 рузро дар бар мегирад.
+Сурогаи мо: ${CONFIG.address}
+Номери кортхо: ${CONFIG.cardNumbers}
+---
+Заказ:
+Товары: ${itemsText}
+Сумма: ${finalTotal} ₽${discountPercent ? ' (со скидкой ' + discountPercent + '%)' : ''}`;
+
+      window.open(`https://wa.me/${CONFIG.whatsappNumber}?text=${encodeURIComponent(msg)}`, '_blank');
+      alert('Заказ оформлен!');
+    };
+
+    // Товары
+    function loadProducts() {
+      allProducts = getProducts();
+      updateFilterOptions();
+      renderProducts();
+    }
+    function updateFilterOptions() {
+      const cats = [...new Set(allProducts.map(p => p.category).filter(Boolean))];
+      const cons = [...new Set(allProducts.map(p => p.country).filter(Boolean))];
+      document.getElementById('filterCategory').innerHTML = '<option value="">Все категории</option>' + cats.map(c => `<option>${c}</option>`).join('');
+      document.getElementById('filterCountry').innerHTML = '<option value="">Все страны</option>' + cons.map(c => `<option>${c}</option>`).join('');
+      document.getElementById('categorySuggestions').innerHTML = cats.map(c => `<option>${c}</option>`).join('');
+    }
+    function renderProducts() {
+      const catF = document.getElementById('filterCategory').value;
+      const conF = document.getElementById('filterCountry').value;
+      let filtered = allProducts;
+      if (catF) filtered = filtered.filter(p => p.category === catF);
+      if (conF) filtered = filtered.filter(p => p.country === conF);
+      const container = document.getElementById('productList');
+      if (!filtered.length) container.innerHTML = '<p>Товаров нет</p>';
+      else container.innerHTML = filtered.map(p => {
+        const hasVariants = (p.sizes || p.colors);
+        const btnHtml = hasVariants
+          ? `<button class="btn" onclick='openVariantModal(${JSON.stringify(p).replace(/'/g, "&#39;")})'>Выбрать</button>`
+          : `<button class="btn" onclick='addToCart(${JSON.stringify(p).replace(/'/g, "&#39;")}, "", "", 1)'>В корзину</button>`;
+        return `
+          <div class="card product">
+            <div style="display:flex;align-items:center;">
+              ${p.image ? `<img src="${p.image}" alt="">` : ''}
+              <div>
+                <strong>${p.name}</strong><br><span>${p.price} ₽</span>
+                <div class="meta">${p.category || '—'} • ${p.country || '—'}</div>
+                ${p.sizes ? `<div class="meta">Размеры: ${p.sizes}</div>` : ''}
+                ${p.colors ? `<div class="meta">Цвета: ${p.colors}</div>` : ''}
+              </div>
+            </div>
+            ${btnHtml}
+          </div>
+        `;
+      }).join('');
+    }
+    document.getElementById('filterCategory').onchange = renderProducts;
+    document.getElementById('filterCountry').onchange = renderProducts;
+
+    // Варианты
+    document.getElementById('closeVariantModal').onclick = () => document.getElementById('variantModal').classList.remove('active');
+    document.getElementById('addVariantToCart').onclick = () => {
+      if (!currentVariantProduct) return;
+      const size = document.getElementById('variantSize').value;
+      const color = document.getElementById('variantColor').value;
+      const qty = parseInt(document.getElementById('variantQty').value) || 1;
+      addToCart(currentVariantProduct, size, color, qty);
+      document.getElementById('variantModal').classList.remove('active');
+      currentVariantProduct = null;
+    };
+    function openVariantModal(product) {
+      currentVariantProduct = product;
+      document.getElementById('variantProductName').textContent = product.name;
+      const sizeSel = document.getElementById('variantSize');
+      const colorSel = document.getElementById('variantColor');
+      sizeSel.innerHTML = ''; colorSel.innerHTML = '';
+      (product.sizes || 'Без размера').split(',').map(s => s.trim()).filter(Boolean).forEach(s => sizeSel.add(new Option(s, s)));
+      if (sizeSel.length === 0) sizeSel.add(new Option('Без размера', 'Без размера'));
+      (product.colors || 'Без цвета').split(',').map(c => c.trim()).filter(Boolean).forEach(c => colorSel.add(new Option(c, c)));
+      if (colorSel.length === 0) colorSel.add(new Option('Без цвета', 'Без цвета'));
+      document.getElementById('variantQty').value = 1;
+      document.getElementById('variantModal').classList.add('active');
+    }
+
+    // Мои заказы
+    function renderMyOrders() {
+      const user = getCurrentUser();
+      if (!user) { document.getElementById('myOrdersList').innerHTML = '<p>Войдите</p>'; return; }
+      const orders = getOrders().filter(o => o.customerLogin === user.login).reverse();
+      const cont = document.getElementById('myOrdersList');
+      if (!orders.length) cont.innerHTML = '<p>Нет заказов</p>';
+      else cont.innerHTML = orders.map(o => {
+        let statusText = '';
+        if (o.status === 'pending') statusText = '⏳ Ожидает';
+        else if (o.status === 'approved') statusText = '✅ Одобрен';
+        else if (o.status === 'rejected') statusText = '❌ Отклонён';
+        return `
+          <div class="card">
+            <p><strong>${o.date}</strong> (${statusText})</p>
+            <ul>${o.items.map(i => `<li>${i.name} (${i.size || '—'}, ${i.color || '—'}) – ${i.price} ₽</li>`).join('')}</ul>
+            <p><strong>Итого:</strong> ${o.total} ₽ ${o.discount ? `(скидка ${o.discount}%)` : ''}</p>
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Админ: товары
+    let selectedImageData = null;
+    document.getElementById('chooseImageBtn').onclick = () => document.getElementById('prodImageFile').click();
+    document.getElementById('prodImageFile').onchange = function(e) {
+      const f = e.target.files[0];
+      if (!f) return;
+      const r = new FileReader();
+      r.onload = () => {
+        selectedImageData = r.result;
+        document.getElementById('imagePreview').src = selectedImageData;
+        document.getElementById('imagePreview').style.display = 'block';
+      };
+      r.readAsDataURL(f);
+    };
+    document.getElementById('addProductBtn').onclick = () => {
+      const name = document.getElementById('prodName').value.trim();
+      const price = parseFloat(document.getElementById('prodPrice').value);
+      if (!name || isNaN(price)) return alert('Введите название и цену');
+      const newProduct = {
+        id: Date.now().toString(),
+        name, price,
+        category: document.getElementById('prodCategory').value.trim(),
+        country: document.getElementById('prodCountry').value.trim(),
+        sizes: document.getElementById('prodSizes').value.trim(),
+        colors: document.getElementById('prodColors').value.trim(),
+        image: selectedImageData || ''
+      };
+      const products = getProducts();
+      products.push(newProduct);
+      setProducts(products);
+      ['prodName','prodPrice','prodCategory','prodCountry','prodSizes','prodColors'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('prodImageFile').value = '';
+      selectedImageData = null;
+      document.getElementById('imagePreview').style.display = 'none';
+      loadProducts();
+      renderAdminProducts();
+    };
+    function renderAdminProducts() {
+      const products = getProducts();
+      document.getElementById('adminProductList').innerHTML = products.map(p => `
+        <div class="card product">
+          <div><strong>${p.name}</strong> – ${p.price} ₽</div>
+          <div>
+            <button class="btn blue small" onclick="editProduct('${p.id}')">Изменить</button>
+            <button class="btn red small" onclick="deleteProduct('${p.id}')">Удалить</button>
+          </div>
+        </div>
+      `).join('');
+    }
+    window.editProduct = function(id) {
+      const products = getProducts();
+      const p = products.find(x => x.id === id);
+      if (!p) return;
+      const name = prompt('Название', p.name);
+      if (name === null) return;
+      const price = parseFloat(prompt('Цена', p.price));
+      if (isNaN(price)) return;
+      p.name = name; p.price = price;
+      p.category = prompt('Категория', p.category) || '';
+      p.country = prompt('Страна', p.country) || '';
+      p.sizes = prompt('Размеры', p.sizes) || '';
+      p.colors = prompt('Цвета', p.colors) || '';
+      setProducts(products);
+      loadProducts();
+      renderAdminProducts();
+    };
+    window.deleteProduct = function(id) {
+      if (!confirm('Удалить товар?')) return;
+      let products = getProducts();
+      products = products.filter(p => p.id !== id);
+      setProducts(products);
+      loadProducts();
+      renderAdminProducts();
+    };
+
+    // ===== Админ: заказы (РАБОТАЕТ!) =====
+    function renderAdminOrders() {
+      const orders = getOrders().filter(o => o.status === 'pending');
+      const cont = document.getElementById('ordersList');
+      if (!orders.length) {
+        cont.innerHTML = '<p>Нет неодобренных заказов</p>';
+        return;
+      }
+      cont.innerHTML = orders.map(o => `
+        <div class="card">
+          <p><strong>${o.customerLogin}</strong> (${o.date})</p>
+          <ul>${o.items.map(i => `<li>${i.name} (${i.size || '—'}, ${i.color || '—'}) – ${i.price} ₽</li>`).join('')}</ul>
+          <p>Сумма: ${o.total} ₽ ${o.discount ? '(скидка ' + o.discount + '%)' : ''}</p>
+          <div class="order-actions">
+            <button class="btn small" onclick="approveOrder('${o.orderId}')">Одобрить</button>
+            <button class="btn orange small" onclick="rejectOrder('${o.orderId}')">Отклонить</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    window.approveOrder = function(orderId) {
+      const orders = getOrders();
+      const order = orders.find(o => o.orderId === orderId);
+      if (!order) return alert('Заказ не найден');
+      if (confirm('Одобрить заказ?')) {
+        order.status = 'approved';
+        setOrders(orders);
+        renderAdminOrders();
+        if (document.getElementById('tabMyOrders').classList.contains('active')) renderMyOrders();
+      }
+    };
+
+    window.rejectOrder = function(orderId) {
+      const orders = getOrders();
+      const order = orders.find(o => o.orderId === orderId);
+      if (!order) return alert('Заказ не найден');
+      if (confirm('Отклонить заказ?')) {
+        order.status = 'rejected';
+        setOrders(orders);
+        renderAdminOrders();
+        if (document.getElementById('tabMyOrders').classList.contains('active')) renderMyOrders();
+      }
+    };
+
+    // Админ: клиенты
+    function renderClients() {
+      const users = getUsers();
+      const orders = getOrders();
+      document.getElementById('clientsList').innerHTML = users.map(u => {
+        const cnt = orders.filter(o => o.customerLogin === u.login).length;
+        return `
+          <div class="card">
+            <p><strong>${u.login}</strong> 📞 ${u.phone} 🏙 ${u.city || '—'}</p>
+            <p>Заказов: ${cnt}</p>
+            <button class="btn blue small" onclick="viewClientOrders('${u.login}')">Заказы</button>
+            <button class="btn red small" onclick="deleteClient('${u.login}')">Удалить</button>
+            <div id="clientOrders_${u.login}" class="hidden" style="margin-top:10px;"></div>
+          </div>
+        `;
+      }).join('');
+    }
+    window.viewClientOrders = function(login) {
+      const block = document.getElementById('clientOrders_' + login);
+      if (!block.classList.contains('hidden')) { block.classList.add('hidden'); return; }
+      const orders = getOrders().filter(o => o.customerLogin === login).reverse();
+      block.innerHTML = orders.length ? orders.map(o => `
+        <div class="card"><p>${o.date} – ${o.total} ₽ (${o.status})</p>
+        <ul>${o.items.map(i => `<li>${i.name} – ${i.price} ₽</li>`).join('')}</ul></div>
+      `).join('') : '<p>Нет заказов</p>';
+      block.classList.remove('hidden');
+    };
+    window.deleteClient = function(login) {
+      if (!confirm(`Удалить клиента ${login} и его заказы?`)) return;
+      setUsers(getUsers().filter(u => u.login !== login));
+      setOrders(getOrders().filter(o => o.customerLogin !== login));
+      if (getCurrentUser()?.login === login) { setCurrentUser(null); updateAuthUI(); }
+      renderClients();
+      alert('Клиент удалён');
+    };
+
+    // Админ: промокоды
+    function renderPromos() {
+      const promos = getPromos();
+      document.getElementById('promoList').innerHTML = promos.length ?
+        promos.map(p => `
+          <div class="card" style="display:flex; justify-content:space-between; align-items:center;">
+            <div><strong>${p.code}</strong> – скидка ${p.discountPercent}%, макс на номер: ${p.maxUsagePerPhone}</div>
+            <button class="btn red small" onclick="deletePromo('${p.code}')">Удалить</button>
+          </div>
+        `).join('') : '<p>Нет промокодов</p>';
+    }
+    window.deletePromo = function(code) {
+      if (!confirm('Удалить промокод ' + code + '?')) return;
+      let promos = getPromos();
+      promos = promos.filter(p => p.code !== code);
+      setPromos(promos);
+      renderPromos();
+    };
+    document.getElementById('addPromoBtn').onclick = () => {
+      const code = document.getElementById('promoCode').value.trim().toUpperCase();
+      const discount = parseInt(document.getElementById('promoDiscount').value);
+      const maxUsage = parseInt(document.getElementById('promoMaxUsage').value);
+      if (!code || isNaN(discount) || discount <= 0 || discount >= 100 || isNaN(maxUsage) || maxUsage < 1) {
+        alert('Заполните все поля корректно');
+        return;
+      }
+      const promos = getPromos();
+      if (promos.find(p => p.code === code)) {
+        alert('Такой код уже существует');
+        return;
+      }
+      promos.push({ code, discountPercent: discount, maxUsagePerPhone: maxUsage });
+      setPromos(promos);
+      document.getElementById('promoCode').value = '';
+      document.getElementById('promoDiscount').value = '';
+      document.getElementById('promoMaxUsage').value = '1';
+      renderPromos();
+    };
+
+    // Инициализация
+    updateCartCount();
+    renderCart();
+    loadProducts();
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('data:application/javascript,' + encodeURIComponent("self.addEventListener('fetch', function(e) { e.respondWith(fetch(e.request)); });"));
+    }
+  </script>
+</body>
+</html>
